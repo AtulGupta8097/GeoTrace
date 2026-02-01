@@ -10,12 +10,16 @@ import androidx.compose.ui.Modifier
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
+import com.geofencing.tracker.presentation.geofences.GeofencesScreen
 import com.geofencing.tracker.presentation.main_screen.component.BottomBar
+import com.geofencing.tracker.presentation.map.MapScreen
 import com.geofencing.tracker.presentation.navigation.Routes
+import com.geofencing.tracker.presentation.visit.VisitsScreen
 
 @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
 @Composable
 fun MainScreen() {
+
     val navBackStack = rememberNavBackStack(Routes.Geofence)
 
     Scaffold(
@@ -33,28 +37,19 @@ fun MainScreen() {
             NavDisplay(
                 backStack = navBackStack,
                 entryProvider = entryProvider {
+                    entry<Routes.Map> {
+                        MapScreen()
+                    }
                     entry<Routes.Geofence> {
-                        GeofenceScreen()
+                        GeofencesScreen()
                     }
                     entry<Routes.Visit> {
-                        VisitScreen()
-                    }
-                    entry<Routes.History> {
-
+                        VisitsScreen()
                     }
                 }
 
             )
         }
     }
-}
-
-@Composable
-fun GeofenceScreen() {
-
-}
-@Composable
-fun VisitScreen() {
-
 }
 

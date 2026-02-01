@@ -7,13 +7,13 @@ import kotlinx.serialization.Serializable
 sealed interface Routes : NavKey {
 
     @Serializable
+    data object Map : Routes, NavKey
+
+    @Serializable
     data object Geofence : Routes, NavKey
+
 
     @Serializable
     data object Visit : Routes, NavKey
-
-
-    @Serializable
-    data object History : Routes, NavKey
 
 }

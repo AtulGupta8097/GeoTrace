@@ -15,28 +15,28 @@ sealed class Navbar(
     val activeIcon: ImageVector,
     val inactiveIcon: ImageVector
 ) {
-    object Geofence : Navbar(
-        route = Routes.Geofence,
-        title = "Geofence",
+    object Map : Navbar(
+        route = Routes.Map,
+        title = "Map",
         activeIcon = Icons.Filled.Home,
         inactiveIcon = Icons.Outlined.Home
     )
 
-    object Visits : Navbar(
-        route = Routes.Visit,
-        title = "Visits",
+    object Geofence : Navbar(
+        route = Routes.Geofence,
+        title = "Geofence",
         activeIcon = Icons.Filled.InsertChart,
         inactiveIcon = Icons.Outlined.InsertChart
     )
 
-    object History : Navbar(
-        route = Routes.History,
-        title = "History",
+    object Visit : Navbar(
+        route = Routes.Visit,
+        title = "Visit",
         activeIcon = Icons.Filled.Bookmark,
         inactiveIcon = Icons.Outlined.Bookmark
     )
 
     companion object {
-        val items = listOf(Geofence, Visits, History)
+        val items = listOf(Map,Geofence, Visit)
     }
 }
