@@ -1,4 +1,4 @@
-package com.geofencing.tracker.ui.theme
+package com.geofencing.tracker.presentation.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

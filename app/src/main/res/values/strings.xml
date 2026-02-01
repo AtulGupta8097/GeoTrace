@@ -1,3 +1,43 @@
 <resources>
     <string name="app_name">Geofencing</string>
+    <!-- Map Screen -->
+    <string name="map_title">Geofence Tracker</string>
+    <string name="create_geofence">Create Geofence</string>
+    <string name="long_press_to_create">Long press on map to create geofence</string>
+
+    <!-- Geofence List -->
+    <string name="geofences_title">Geofences</string>
+    <string name="no_geofences">No geofences created yet</string>
+    <string name="delete_geofence">Delete Geofence</string>
+    <string name="delete_confirmation">Are you sure you want to delete this geofence?</string>
+
+    <!-- Visit History -->
+    <string name="visits_title">Visit History</string>
+    <string name="no_visits">No visits recorded yet</string>
+    <string name="visit_active">ACTIVE</string>
+    <string name="visit_entry">Entry</string>
+    <string name="visit_exit">Exit</string>
+    <string name="visit_duration">Duration</string>
+
+    <!-- Permissions -->
+    <string name="permission_required">Location permissions required</string>
+    <string name="permission_explanation">This app needs location permissions to track geofences in the background.</string>
+    <string name="grant_permissions">Grant Permissions</string>
+
+    <!-- Notifications -->
+    <string name="notification_channel_name">Geofence Alerts</string>
+    <string name="notification_channel_description">Notifications for geofence entry and exit events</string>
+    <string name="notification_entry_title">Entered %s</string>
+    <string name="notification_entry_content">You\'ve entered the geofence area</string>
+    <string name="notification_exit_title">Exited %s</string>
+    <string name="notification_exit_content">You spent %s inside</string>
+
+    <!-- Common -->
+    <string name="ok">OK</string>
+    <string name="cancel">Cancel</string>
+    <string name="delete">Delete</string>
+    <string name="save">Save</string>
+    <string name="name">Name</string>
+    <string name="radius">Radius (meters)</string>
+    <string name="create">Create</string>
 </resources>
