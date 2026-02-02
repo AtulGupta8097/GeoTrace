@@ -25,6 +25,9 @@ An Android application that allows users to create location-based geofences and 
 - **Notifications:** Notification Manager  
 
 ---
+## 📦 APK
+_Download APK link here_
+---
 
 ## 🚀 How to Run the Project
 
