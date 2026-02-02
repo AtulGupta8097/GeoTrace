@@ -22,7 +22,6 @@ class GeofenceManager @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     private val geofencingClient: GeofencingClient = LocationServices.getGeofencingClient(context)
-
     private val geofencePendingIntent: PendingIntent by lazy {
         val intent = Intent(context, GeofenceBroadcastReceiver::class.java)
         PendingIntent.getBroadcast(
