@@ -26,7 +26,7 @@ An Android application that allows users to create location-based geofences and 
 
 ---
 ## 📦 APK
-_Download APK link here_
+_https://github.com/AtulGupta8097/GeoTrace/releases/download/v1/app-debug.apk_
 ---
 
 ## 🚀 How to Run the Project
