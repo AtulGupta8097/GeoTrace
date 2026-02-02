@@ -1,4 +1,3 @@
-// data/manager/GeofenceManager.kt
 package com.geofencing.tracker.data.manager
 
 import android.Manifest

@@ -38,15 +38,22 @@ class GeofenceRepositoryImpl @Inject constructor(
         return visitDao.insert(visit.toEntity())
     }
 
-    override suspend fun updateVisitExitTime(visitId: Long, exitTime: Long) {
-        val visit = visitDao.getAllVisits().map { it.find { v -> v.id == visitId } }
-        visit.collect { v ->
-            v?.let {
-                val duration = ((exitTime - it.entryTime) / 60000).toInt()
-                visitDao.updateExitTime(visitId, exitTime, duration)
-            }
-        }
+    override suspend fun updateVisitExitTime(
+        visitId: Long,
+        exitTime: Long
+    ) {
+        val visit = visitDao.getVisitById(visitId) ?: return
+
+        val durationMinutes =
+            ((exitTime - visit.entryTime) / 60_000).toInt()
+
+        visitDao.updateExitTime(
+            visitId = visitId,
+            exitTime = exitTime,
+            durationMinutes = durationMinutes
+        )
     }
+
 
     override suspend fun getActiveVisit(geofenceId: Long): GeofenceVisit? {
         return visitDao.getActiveVisit(geofenceId)?.toDomain()

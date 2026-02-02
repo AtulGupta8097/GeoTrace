@@ -9,5 +9,6 @@ val secondary = Color(0xFF1E2026)
 val tertiary = Color(0xFF8FA1BE)
 val onSurfaceVariance = Color(0XFF000000)
 val onSurface = Color(0xFF2B2B2B)
+val background = Color(0xFFD6E2F5)
 
 

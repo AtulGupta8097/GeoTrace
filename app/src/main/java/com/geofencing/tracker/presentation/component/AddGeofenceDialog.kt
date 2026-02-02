@@ -10,40 +10,38 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun AddGeofenceDialog(
+    locationName: String,
     onDismiss: () -> Unit,
-    onConfirm: (String, Float) -> Unit
+    onConfirm: (String?) -> Unit
 ) {
-    var name by remember { mutableStateOf("") }
-    var radius by remember { mutableStateOf("100") }
+    var customName by remember { mutableStateOf(locationName) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Add Geofence") },
         text = {
             Column {
+
                 OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Location Name") },
+                    value = customName,
+                    onValueChange = { customName = it },
+                    label = { Text("Geofence Name (optional)") },
+                    placeholder = { Text(locationName) },
                     modifier = Modifier.fillMaxWidth()
                 )
+
                 Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = radius,
-                    onValueChange = { radius = it },
-                    label = { Text("Radius (meters)") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth()
+
+                Text(
+                    text = "Radius: 100 meters",
+                    style = MaterialTheme.typography.bodyMedium
                 )
             }
         },
         confirmButton = {
             TextButton(
                 onClick = {
-                    val radiusValue = radius.toFloatOrNull() ?: 100f
-                    if (name.isNotBlank() && radiusValue in 10f..1000f) {
-                        onConfirm(name, radiusValue)
-                    }
+                    onConfirm(customName.takeIf { it.isNotBlank() })
                 }
             ) {
                 Text("Add")

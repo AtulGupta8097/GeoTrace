@@ -1,7 +1,9 @@
 package com.geofencing.tracker.presentation.map
 
 import android.Manifest
+import android.content.Intent
 import android.os.Build
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
@@ -10,10 +12,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.geofencing.tracker.presentation.components.AddGeofenceDialog
-import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
 
@@ -23,16 +26,17 @@ import com.google.maps.android.compose.*
 fun MapScreen(
     viewModel: MapViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
     val geofences by viewModel.geofences.collectAsState()
-    val defaultLocation = LatLng(8.524, 76.939)
 
-    val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(defaultLocation, 15f)
-    }
+    val cameraPositionState = rememberCameraPositionState()
+    var permissionGranted by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { }
+    ) { granted ->
+        permissionGranted = granted.values.any { it }
+    }
 
     LaunchedEffect(Unit) {
         if (!viewModel.hasLocationPermission()) {
@@ -43,10 +47,23 @@ fun MapScreen(
                     Manifest.permission.POST_NOTIFICATIONS
                 )
             )
+        } else {
+            permissionGranted = true
+        }
+    }
+
+    LaunchedEffect(permissionGranted) {
+        if (permissionGranted) {
+            viewModel.getCurrentLocation()?.let {
+                cameraPositionState.animate(
+                    CameraUpdateFactory.newLatLngZoom(it, 16f)
+                )
+            }
         }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
+
         GoogleMap(
             modifier = Modifier.fillMaxSize(),
             cameraPositionState = cameraPositionState,
@@ -57,13 +74,16 @@ fun MapScreen(
                 zoomControlsEnabled = false,
                 myLocationButtonEnabled = true
             ),
-            onMapLongClick = { latLng ->
-                viewModel.onMapLongClick(latLng)
-            }
+            onMapLongClick = viewModel::onMapLongClick
         ) {
             geofences.forEach { geofence ->
                 Marker(
-                    state = MarkerState(position = LatLng(geofence.latitude, geofence.longitude)),
+                    state = MarkerState(
+                        position = LatLng(
+                            geofence.latitude,
+                            geofence.longitude
+                        )
+                    ),
                     title = geofence.name
                 )
                 Circle(
@@ -77,7 +97,9 @@ fun MapScreen(
         }
 
         Button(
-            onClick = { viewModel.onMapLongClick(cameraPositionState.position.target) },
+            onClick = {
+                viewModel.onMapLongClick(cameraPositionState.position.target)
+            },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(16.dp)
@@ -88,10 +110,38 @@ fun MapScreen(
 
     if (viewModel.showAddDialog) {
         AddGeofenceDialog(
-            onDismiss = { viewModel.onDismissDialog() },
-            onConfirm = { name, radius ->
-                viewModel.addGeofence(name, radius)
+            locationName = viewModel.selectedLocationName,
+            onDismiss = viewModel::onDismissDialog,
+            onConfirm = { customName ->
+                viewModel.addGeofence(customName)
+            }
+        )
+    }
+
+    if (viewModel.shouldAskToEnableLocation) {
+        AlertDialog(
+            onDismissRequest = viewModel::onLocationDialogDismiss,
+            title = { Text("Enable Location") },
+            text = {
+                Text("Location services are turned off. Please enable GPS to continue.")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.onLocationDialogDismiss()
+                    context.startActivity(
+                        Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+                    )
+                }) {
+                    Text("Open Settings")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::onLocationDialogDismiss) {
+                    Text("Cancel")
+                }
             }
         )
     }
 }
+
+

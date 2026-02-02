@@ -11,6 +11,8 @@ interface VisitDao {
 
     @Update
     suspend fun update(visit: VisitEntity)
+    @Query("SELECT * FROM visits WHERE id = :visitId LIMIT 1")
+    suspend fun getVisitById(visitId: Long): VisitEntity
 
     @Query("SELECT * FROM visits WHERE geofenceId = :geofenceId AND exitTime IS NULL LIMIT 1")
     suspend fun getActiveVisit(geofenceId: Long): VisitEntity?
