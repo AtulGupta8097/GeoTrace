@@ -9,9 +9,20 @@ interface GeofenceRepository {
     suspend fun removeGeofence(geofenceId: Long)
     suspend fun getGeofence(geofenceId: Long): GeofenceLocation?
     fun getAllGeofences(): Flow<List<GeofenceLocation>>
-    
+    suspend fun getAllGeofencesSnapshot(): List<GeofenceLocation>
+
+    // Visit tracking
     suspend fun addVisit(visit: GeofenceVisit): Long
     suspend fun updateVisitExitTime(visitId: Long, exitTime: Long)
     suspend fun getActiveVisit(geofenceId: Long): GeofenceVisit?
     fun getAllVisits(): Flow<List<GeofenceVisit>>
+
+    // Route planning selection
+    suspend fun toggleGeofenceSelection(geofenceId: Long, isSelected: Boolean)
+    suspend fun clearAllSelections()
+    suspend fun getSelectedGeofences(): List<GeofenceLocation>
+
+    // Mark geofence as visited during route
+    suspend fun markGeofenceVisited(geofenceId: Long, isVisited: Boolean)
+    suspend fun clearAllVisited()
 }

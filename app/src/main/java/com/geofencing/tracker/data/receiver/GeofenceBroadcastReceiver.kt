@@ -7,49 +7,21 @@ import android.os.Build
 import com.geofencing.tracker.data.service.GeofenceService
 import com.google.android.gms.location.GeofencingEvent
 
-class GeofenceBroadcastReceiver : BroadcastReceiver() {
 
-    override fun onReceive(context: Context, intent: Intent) {
 
-        val geofencingEvent = GeofencingEvent.fromIntent(intent)
+/**
+ * Previously handled Google GeofencingClient broadcasts.
+ * Google Geofencing has been removed — proximity detection is now done entirely
+ * inside GeofenceManager using FusedLocationProvider + haversine distance checks.
+ *
+ * This file is kept only to preserve the EXTRA_* constants referenced by
+ * GeofenceService. The receiver itself is no longer registered in the manifest.
+ */
+object GeofenceBroadcastReceiver {
+    const val EXTRA_GEOFENCE_ID = "geofence_id"
+    const val EXTRA_TRANSITION_TYPE = "transition_type"
 
-        if (geofencingEvent == null) {
-            return
-        }
-
-        if (geofencingEvent.hasError()) {
-            return
-        }
-
-        val geofenceTransition = geofencingEvent.geofenceTransition
-        val triggeringGeofences = geofencingEvent.triggeringGeofences
-
-        if (triggeringGeofences.isNullOrEmpty()) {
-            return
-        }
-
-        triggeringGeofences.forEach { geofence ->
-            val geofenceId = geofence.requestId.toLongOrNull()
-            if (geofenceId == null) {
-                return@forEach
-            }
-
-            val serviceIntent = Intent(context, GeofenceService::class.java).apply {
-                putExtra(EXTRA_GEOFENCE_ID, geofenceId)
-                putExtra(EXTRA_TRANSITION_TYPE, geofenceTransition)
-            }
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(serviceIntent)
-            } else {
-                context.startService(serviceIntent)
-            }
-        }
-    }
-
-    companion object {
-        private const val TAG = "GeofenceBroadcast"
-        const val EXTRA_GEOFENCE_ID = "geofence_id"
-        const val EXTRA_TRANSITION_TYPE = "transition_type"
-    }
+    // Transition type constants — replaces com.google.android.gms.location.Geofence constants
+    const val TRANSITION_ENTER = 1
+    const val TRANSITION_EXIT = 2
 }

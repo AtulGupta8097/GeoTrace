@@ -1,4 +1,5 @@
-package com.geofencing.tracker.data.respository
+package com.geofencing.tracker.data.repository
+
 import com.geofencing.tracker.data.local.dao.GeofenceDao
 import com.geofencing.tracker.data.local.dao.VisitDao
 import com.geofencing.tracker.data.mapper.toDomain
@@ -15,52 +16,48 @@ class GeofenceRepositoryImpl @Inject constructor(
     private val visitDao: VisitDao
 ) : GeofenceRepository {
 
-    override suspend fun addGeofence(geofence: GeofenceLocation): Long {
-        return geofenceDao.insert(geofence.toEntity())
-    }
+    override suspend fun addGeofence(geofence: GeofenceLocation): Long =
+        geofenceDao.insert(geofence.toEntity())
 
-    override suspend fun removeGeofence(geofenceId: Long) {
+    override suspend fun removeGeofence(geofenceId: Long) =
         geofenceDao.deleteById(geofenceId)
-    }
 
-    override suspend fun getGeofence(geofenceId: Long): GeofenceLocation? {
-        return geofenceDao.getGeofenceById(geofenceId)?.toDomain()
-    }
+    override suspend fun getGeofence(geofenceId: Long): GeofenceLocation? =
+        geofenceDao.getGeofenceById(geofenceId)?.toDomain()
 
-    override fun getAllGeofences(): Flow<List<GeofenceLocation>> {
-        return geofenceDao.getAllGeofences().map { entities ->
-            entities.map { it.toDomain() }
-        }
-    }
+    override fun getAllGeofences(): Flow<List<GeofenceLocation>> =
+        geofenceDao.getAllGeofences().map { it.map { e -> e.toDomain() } }
 
-    override suspend fun addVisit(visit: GeofenceVisit): Long {
-        return visitDao.insert(visit.toEntity())
-    }
+    override suspend fun getAllGeofencesSnapshot(): List<GeofenceLocation> =
+        geofenceDao.getAllGeofencesSnapshot().map { it.toDomain() }
 
-    override suspend fun updateVisitExitTime(
-        visitId: Long,
-        exitTime: Long
-    ) {
+    override suspend fun addVisit(visit: GeofenceVisit): Long =
+        visitDao.insert(visit.toEntity())
+
+    override suspend fun updateVisitExitTime(visitId: Long, exitTime: Long) {
         val visit = visitDao.getVisitById(visitId) ?: return
-
-        val durationMinutes =
-            ((exitTime - visit.entryTime) / 60_000).toInt()
-
-        visitDao.updateExitTime(
-            visitId = visitId,
-            exitTime = exitTime,
-            durationMinutes = durationMinutes
-        )
+        val durationMinutes = ((exitTime - visit.entryTime) / 60_000).toInt()
+        visitDao.updateExitTime(visitId, exitTime, durationMinutes)
     }
 
+    override suspend fun getActiveVisit(geofenceId: Long): GeofenceVisit? =
+        visitDao.getActiveVisit(geofenceId)?.toDomain()
 
-    override suspend fun getActiveVisit(geofenceId: Long): GeofenceVisit? {
-        return visitDao.getActiveVisit(geofenceId)?.toDomain()
-    }
+    override fun getAllVisits(): Flow<List<GeofenceVisit>> =
+        visitDao.getAllVisits().map { it.map { e -> e.toDomain() } }
 
-    override fun getAllVisits(): Flow<List<GeofenceVisit>> {
-        return visitDao.getAllVisits().map { entities ->
-            entities.map { it.toDomain() }
-        }
-    }
+    override suspend fun toggleGeofenceSelection(geofenceId: Long, isSelected: Boolean) =
+        geofenceDao.updateSelection(geofenceId, isSelected)
+
+    override suspend fun clearAllSelections() =
+        geofenceDao.clearAllSelections()
+
+    override suspend fun getSelectedGeofences(): List<GeofenceLocation> =
+        geofenceDao.getSelectedGeofences().map { it.toDomain() }
+
+    override suspend fun markGeofenceVisited(geofenceId: Long, isVisited: Boolean) =
+        geofenceDao.updateVisited(geofenceId, isVisited)
+
+    override suspend fun clearAllVisited() =
+        geofenceDao.clearAllVisited()
 }

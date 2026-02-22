@@ -1,42 +1,28 @@
 package com.geofencing.tracker.presentation.navigation
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.InsertChart
-import androidx.compose.material.icons.outlined.Bookmark
-import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.InsertChart
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.Navigation
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.Map
+import androidx.compose.material.icons.outlined.Navigation
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.ui.graphics.vector.ImageVector
 
-sealed class Navbar(
-    val route: Routes,
+data class NavItem(
     val title: String,
+    val route: Routes,
     val activeIcon: ImageVector,
     val inactiveIcon: ImageVector
-) {
-    object Map : Navbar(
-        route = Routes.Map,
-        title = "Map",
-        activeIcon = Icons.Filled.Home,
-        inactiveIcon = Icons.Outlined.Home
-    )
+)
 
-    object Geofence : Navbar(
-        route = Routes.Geofence,
-        title = "Geofence",
-        activeIcon = Icons.Filled.InsertChart,
-        inactiveIcon = Icons.Outlined.InsertChart
+object Navbar {
+    val items = listOf(
+        NavItem("Map", Routes.Map, Icons.Filled.Map, Icons.Outlined.Map),
+        NavItem("Geofences", Routes.Geofence, Icons.Filled.LocationOn, Icons.Outlined.LocationOn),
+        NavItem("Route", Routes.Route, Icons.Filled.Navigation, Icons.Outlined.Navigation),
+        NavItem("Visits", Routes.Visit, Icons.Filled.Schedule, Icons.Outlined.Schedule),
     )
-
-    object Visit : Navbar(
-        route = Routes.Visit,
-        title = "Visit",
-        activeIcon = Icons.Filled.Bookmark,
-        inactiveIcon = Icons.Outlined.Bookmark
-    )
-
-    companion object {
-        val items = listOf(Map,Geofence, Visit)
-    }
 }

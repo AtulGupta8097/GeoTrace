@@ -11,5 +11,7 @@ data class GeofenceEntity(
     val latitude: Double,
     val longitude: Double,
     val radius: Float,
-    val createdAt: Long
+    val createdAt: Long,
+    val isSelected: Boolean = false,
+    val isVisited: Boolean = false
 )

@@ -1,82 +1,115 @@
 package com.geofencing.tracker.data.manager
 
-import android.Manifest
-import android.app.PendingIntent
+import android.annotation.SuppressLint
 import android.content.Context
-import android.content.Intent
-import android.content.pm.PackageManager
-import androidx.core.app.ActivityCompat
-import com.geofencing.tracker.data.receiver.GeofenceBroadcastReceiver
+import android.os.Looper
 import com.geofencing.tracker.domain.model.GeofenceLocation
-import com.google.android.gms.location.Geofence
-import com.google.android.gms.location.GeofencingClient
-import com.google.android.gms.location.GeofencingRequest
-import com.google.android.gms.location.LocationServices
+import com.geofencing.tracker.domain.repository.GeofenceRepository
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.Priority
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.math.asin
+import kotlin.math.cos
+import kotlin.math.pow
+import kotlin.math.sin
+import kotlin.math.sqrt
 
+/**
+ * Replaces Google's GeofencingClient entirely.
+ *
+ * Subscribes to [FusedLocationProviderClient] location updates and manually
+ * computes haversine distance against every stored geofence.
+ * This avoids any dependency on the Google Geofencing API.
+ *
+ * Call [startMonitoring] once (e.g. from a foreground service) and
+ * [stopMonitoring] when done.
+ */
 @Singleton
 class GeofenceManager @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val fusedLocationClient: FusedLocationProviderClient,
+    private val repository: GeofenceRepository,
 ) {
-    private val geofencingClient: GeofencingClient = LocationServices.getGeofencingClient(context)
-    private val geofencePendingIntent: PendingIntent by lazy {
-        val intent = Intent(context, GeofenceBroadcastReceiver::class.java)
-        PendingIntent.getBroadcast(
-            context,
-            0,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /** Called with the geofence and whether the user just entered (true) or exited (false). */
+    var onTransition: ((geofence: GeofenceLocation, entered: Boolean) -> Unit)? = null
+
+    // Track which geofences the user is currently inside to detect enter/exit edges
+    private val currentlyInside = mutableSetOf<Long>()
+
+    private val locationRequest = LocationRequest.Builder(
+        Priority.PRIORITY_HIGH_ACCURACY,
+        10_000L  // 10 s interval — adjust for battery vs. responsiveness
+    ).setMinUpdateIntervalMillis(5_000L).build()
+
+    private val locationCallback = object : LocationCallback() {
+        override fun onLocationResult(result: LocationResult) {
+            val loc = result.lastLocation ?: return
+            scope.launch {
+                checkProximity(loc.latitude, loc.longitude)
+            }
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    fun startMonitoring() {
+        fusedLocationClient.requestLocationUpdates(
+            locationRequest,
+            locationCallback,
+            Looper.getMainLooper()
         )
     }
 
-    suspend fun addGeofence(geofenceLocation: GeofenceLocation) {
-        if (ActivityCompat.checkSelfPermission(
-                context,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            return
-        }
+    fun stopMonitoring() {
+        fusedLocationClient.removeLocationUpdates(locationCallback)
+        scope.cancel()
+    }
 
-        val geofence = Geofence.Builder()
-            .setRequestId(geofenceLocation.id.toString())
-            .setCircularRegion(
-                geofenceLocation.latitude,
-                geofenceLocation.longitude,
-                geofenceLocation.radius
-            )
-            .setExpirationDuration(Geofence.NEVER_EXPIRE)
-            .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER or Geofence.GEOFENCE_TRANSITION_EXIT)
-            .build()
+    private suspend fun checkProximity(userLat: Double, userLng: Double) {
+        val geofences = repository.getAllGeofencesSnapshot()
+        geofences.forEach { fence ->
+            val distance = haversineMeters(userLat, userLng, fence.latitude, fence.longitude)
+            val inside = distance <= fence.radius
+            val wasInside = fence.id in currentlyInside
 
-        val geofencingRequest = GeofencingRequest.Builder()
-            .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER)
-            .addGeofence(geofence)
-            .build()
-
-        try {
-            geofencingClient.addGeofences(geofencingRequest, geofencePendingIntent).await()
-        } catch (e: Exception) {
-            e.printStackTrace()
+            when {
+                inside && !wasInside -> {
+                    currentlyInside.add(fence.id)
+                    onTransition?.invoke(fence, true)
+                }
+                !inside && wasInside -> {
+                    currentlyInside.remove(fence.id)
+                    onTransition?.invoke(fence, false)
+                }
+            }
         }
     }
 
-    suspend fun removeGeofence(geofenceId: Long) {
-        try {
-            geofencingClient.removeGeofences(listOf(geofenceId.toString())).await()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
+    // ── Haversine distance ────────────────────────────────────────────────────
 
-    suspend fun removeAllGeofences() {
-        try {
-            geofencingClient.removeGeofences(geofencePendingIntent).await()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+    private fun haversineMeters(
+        lat1: Double, lng1: Double,
+        lat2: Double, lng2: Double
+    ): Double {
+        val r = 6_371_000.0  // Earth radius in metres
+        val phi1 = Math.toRadians(lat1)
+        val phi2 = Math.toRadians(lat2)
+        val dPhi = Math.toRadians(lat2 - lat1)
+        val dLambda = Math.toRadians(lng2 - lng1)
+
+        val a = sin(dPhi / 2).pow(2) +
+                cos(phi1) * cos(phi2) * sin(dLambda / 2).pow(2)
+        return r * 2 * asin(sqrt(a))
     }
 }

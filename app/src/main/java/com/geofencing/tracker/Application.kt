@@ -3,29 +3,43 @@ package com.geofencing.tracker
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import com.geofencing.tracker.data.service.GeofenceService
 import dagger.hilt.android.HiltAndroidApp
+import org.maplibre.android.MapLibre
+import org.maplibre.android.WellKnownTileServer
 
 @HiltAndroidApp
 class GeofenceApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        createNotificationChannel()
+
+        MapLibre.getInstance(this, null, WellKnownTileServer.MapLibre)
+        createNotificationChannels()
     }
 
-    private fun createNotificationChannel() {
-        val channel = NotificationChannel(
-            GEOFENCE_CHANNEL_ID,
-            "Geofence Notifications",
-            NotificationManager.IMPORTANCE_HIGH
-        ).apply {
-            description = "Notifications for geofence events"
-        }
-        val notificationManager = getSystemService(NotificationManager::class.java)
-        notificationManager.createNotificationChannel(channel)
-    }
+    private fun createNotificationChannels() {
+        val nm = getSystemService(NotificationManager::class.java)
 
-    companion object {
-        const val GEOFENCE_CHANNEL_ID = "geofence_channel"
+        // Persistent foreground (low importance — doesn't make sound)
+        nm.createNotificationChannel(
+            NotificationChannel(
+                GeofenceService.FOREGROUND_CHANNEL_ID,
+                "Geofence Navigator",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply { description = "Persistent navigation guidance" }
+        )
+
+        // Enter/exit events (high importance — makes sound + vibration)
+        nm.createNotificationChannel(
+            NotificationChannel(
+                GeofenceService.EVENT_CHANNEL_ID,
+                "Geofence Events",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Enter/exit alerts"
+                enableVibration(true)
+            }
+        )
     }
 }

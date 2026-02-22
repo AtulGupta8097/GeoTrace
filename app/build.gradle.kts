@@ -82,4 +82,6 @@ dependencies {
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2")
+    implementation("org.maplibre.gl:android-sdk:10.0.2")
+    implementation("org.maplibre.gl:android-plugin-annotation-v9:3.0.2")
 }

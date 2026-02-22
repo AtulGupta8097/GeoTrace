@@ -6,5 +6,7 @@ data class GeofenceLocation(
     val latitude: Double,
     val longitude: Double,
     val radius: Float,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val isSelected: Boolean = false,
+    val isVisited: Boolean = false
 )
