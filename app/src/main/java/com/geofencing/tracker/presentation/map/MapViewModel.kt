@@ -13,10 +13,12 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.geofencing.tracker.domain.model.GeofenceLocation
+import com.geofencing.tracker.domain.repository.GeofenceRepository
 import com.geofencing.tracker.domain.usecase.AddGeofenceUseCase
 import com.geofencing.tracker.domain.usecase.GetAllGeofencesUseCase
-import com.geofencing.tracker.domain.repository.GeofenceRepository
+import com.google.android.gms.location.CurrentLocationRequest
 import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.Priority
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -53,14 +55,10 @@ class MapViewModel @Inject constructor(
     var shouldAskToEnableLocation by mutableStateOf(false)
         private set
 
-    // Permission / location helpers
-
     fun hasLocationPermission(): Boolean =
-        ContextCompat.checkSelfPermission(
-            context, Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
+        ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
-    fun isSystemLocationEnabled(): Boolean {
+    private fun isLocationEnabled(): Boolean {
         val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
         return lm.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
                 lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
@@ -69,19 +67,28 @@ class MapViewModel @Inject constructor(
     @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
     suspend fun getCurrentLocation(): LatLng? {
         if (!hasLocationPermission()) return null
-        if (!isSystemLocationEnabled()) {
+        if (!isLocationEnabled()) {
             shouldAskToEnableLocation = true
             return null
         }
         return try {
-            val loc = fusedLocationClient.lastLocation.await()
-            loc?.let { LatLng(it.latitude, it.longitude) }
+            // lastLocation can be null on first boot/install — fall back to a fresh fix
+            val last = fusedLocationClient.lastLocation.await()
+            if (last != null) {
+                LatLng(last.latitude, last.longitude)
+            } else {
+                val fresh = fusedLocationClient.getCurrentLocation(
+                    CurrentLocationRequest.Builder()
+                        .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
+                        .build(),
+                    null
+                ).await()
+                fresh?.let { LatLng(it.latitude, it.longitude) }
+            }
         } catch (e: Exception) {
             null
         }
     }
-
-    // Map interaction
 
     fun onMapLongClick(latLng: LatLng) {
         selectedLocation = latLng
@@ -91,7 +98,6 @@ class MapViewModel @Inject constructor(
         }
     }
 
-    /** Toggle a geofence in/out of the route plan (tap on map circle) */
     fun toggleGeofenceSelection(geofenceId: Long, currentlySelected: Boolean) {
         viewModelScope.launch {
             repository.toggleGeofenceSelection(geofenceId, !currentlySelected)
@@ -112,33 +118,21 @@ class MapViewModel @Inject constructor(
         val location = selectedLocation ?: return
         viewModelScope.launch {
             val name = customName?.takeIf { it.isNotBlank() } ?: selectedLocationName
-            val geofence = GeofenceLocation(
-                name = name,
-                latitude = location.latitude,
-                longitude = location.longitude,
-                radius = 100f
-            )
-            addGeofenceUseCase(geofence)
+            addGeofenceUseCase(GeofenceLocation(name = name, latitude = location.latitude, longitude = location.longitude, radius = 100f))
             onDismissDialog()
         }
     }
 
-    // Private helpers
-
-    private suspend fun resolveLocationName(latLng: LatLng): String =
-        withContext(Dispatchers.IO) {
-            try {
-                val geocoder = Geocoder(context, Locale.getDefault())
-                @Suppress("DEPRECATION")
-                val address = geocoder
-                    .getFromLocation(latLng.latitude, latLng.longitude, 1)
-                    ?.firstOrNull()
-                address?.featureName
-                    ?: address?.locality
-                    ?: address?.subAdminArea
-                    ?: "Selected Location"
-            } catch (e: Exception) {
-                "Selected Location"
-            }
+    private suspend fun resolveLocationName(latLng: LatLng): String = withContext(Dispatchers.IO) {
+        try {
+            @Suppress("DEPRECATION")
+            Geocoder(context, Locale.getDefault())
+                .getFromLocation(latLng.latitude, latLng.longitude, 1)
+                ?.firstOrNull()
+                ?.let { it.featureName ?: it.locality ?: it.subAdminArea }
+                ?: "Selected Location"
+        } catch (e: Exception) {
+            "Selected Location"
         }
+    }
 }

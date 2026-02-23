@@ -19,9 +19,6 @@ abstract class GeofenceDatabase : RoomDatabase() {
     abstract fun visitDao(): VisitDao
 
     companion object {
-        /**
-         * Migration 1 → 2: adds isSelected and isVisited columns to geofences.
-         */
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE geofences ADD COLUMN isSelected INTEGER NOT NULL DEFAULT 0")

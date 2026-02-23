@@ -1,6 +1,10 @@
 package com.geofencing.tracker.data.local.dao
 
-import androidx.room.*
+import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
+import androidx.room.Update
 import com.geofencing.tracker.data.local.entitity.VisitEntity
 import kotlinx.coroutines.flow.Flow
 

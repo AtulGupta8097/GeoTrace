@@ -2,10 +2,19 @@ package com.geofencing.tracker.presentation.map
 
 import com.geofencing.tracker.domain.model.GeofenceLocation
 import org.maplibre.android.maps.MapLibreMap
-import org.maplibre.android.style.expressions.Expression.*
+import org.maplibre.android.style.expressions.Expression.get
+import org.maplibre.android.style.expressions.Expression.literal
+import org.maplibre.android.style.expressions.Expression.match
 import org.maplibre.android.style.layers.FillLayer
 import org.maplibre.android.style.layers.LineLayer
-import org.maplibre.android.style.layers.PropertyFactory.*
+import org.maplibre.android.style.layers.PropertyFactory.fillColor
+import org.maplibre.android.style.layers.PropertyFactory.fillOpacity
+import org.maplibre.android.style.layers.PropertyFactory.lineColor
+import org.maplibre.android.style.layers.PropertyFactory.lineWidth
+import org.maplibre.android.style.layers.PropertyFactory.textAnchor
+import org.maplibre.android.style.layers.PropertyFactory.textColor
+import org.maplibre.android.style.layers.PropertyFactory.textField
+import org.maplibre.android.style.layers.PropertyFactory.textSize
 import org.maplibre.android.style.layers.SymbolLayer
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.geojson.Feature
@@ -18,32 +27,17 @@ private const val STROKE_LAYER_ID = "geofence-stroke"
 private const val LABEL_SOURCE_ID = "geofence-label-source"
 private const val LABEL_LAYER_ID = "geofence-label"
 
-/**
- * Draws all geofences with color coding:
- *  - Blue   = normal (not selected)
- *  - Orange = selected for route
- *  - Green  = visited during route
- */
-fun drawGeofences(
-    map: MapLibreMap,
-    geofences: List<GeofenceLocation>
-) {
+fun drawGeofences(map: MapLibreMap, geofences: List<GeofenceLocation>) {
     val style = map.style ?: return
 
-    // Build circle polygon features with state properties
     val circleFeatures = geofences.map { fence ->
-        Feature.fromGeometry(
-            createCircle(fence.latitude, fence.longitude, fence.radius.toDouble())
-        ).also { f ->
+        Feature.fromGeometry(createCircle(fence.latitude, fence.longitude, fence.radius.toDouble())).also { f ->
             f.addStringProperty("id", fence.id.toString())
-            f.addStringProperty(
-                "state",
-                when {
-                    fence.isVisited -> "visited"
-                    fence.isSelected -> "selected"
-                    else -> "normal"
-                }
-            )
+            f.addStringProperty("state", when {
+                fence.isVisited -> "visited"
+                fence.isSelected -> "selected"
+                else -> "normal"
+            })
         }
     }
     val circleCollection = FeatureCollection.fromFeatures(circleFeatures)
@@ -51,32 +45,23 @@ fun drawGeofences(
     val existingCircleSource = style.getSourceAs<GeoJsonSource>(SOURCE_ID)
     if (existingCircleSource == null) {
         style.addSource(GeoJsonSource(SOURCE_ID, circleCollection))
-
-        // Fill colour driven by "state" property
         style.addLayer(
             FillLayer(FILL_LAYER_ID, SOURCE_ID).withProperties(
-                fillColor(
-                    match(
-                        get("state"),
-                        literal("visited"), literal("#4CAF50"),   // green
-                        literal("selected"), literal("#FF9800"),  // orange
-                        literal("#2196F3")                         // blue (default)
-                    )
-                ),
+                fillColor(match(get("state"),
+                    literal("visited"), literal("#4CAF50"),
+                    literal("selected"), literal("#FF9800"),
+                    literal("#2196F3")
+                )),
                 fillOpacity(0.30f)
             )
         )
-
         style.addLayer(
             LineLayer(STROKE_LAYER_ID, SOURCE_ID).withProperties(
-                lineColor(
-                    match(
-                        get("state"),
-                        literal("visited"), literal("#2E7D32"),   // dark green
-                        literal("selected"), literal("#E65100"),  // dark orange
-                        literal("#1565C0")                         // dark blue (default)
-                    )
-                ),
+                lineColor(match(get("state"),
+                    literal("visited"), literal("#2E7D32"),
+                    literal("selected"), literal("#E65100"),
+                    literal("#1565C0")
+                )),
                 lineWidth(2.5f)
             )
         )
@@ -84,17 +69,14 @@ fun drawGeofences(
         existingCircleSource.setGeoJson(circleCollection)
     }
 
-    // Label features
-    val labelFeatures = geofences.mapIndexed { index, fence ->
-        Feature.fromGeometry(
-            Point.fromLngLat(fence.longitude, fence.latitude)
-        ).also { feature ->
+    val labelFeatures = geofences.map { fence ->
+        Feature.fromGeometry(Point.fromLngLat(fence.longitude, fence.latitude)).also { f ->
             val prefix = when {
                 fence.isVisited -> "✅ "
                 fence.isSelected -> "📍 "
                 else -> ""
             }
-            feature.addStringProperty("name", "$prefix${fence.name}")
+            f.addStringProperty("name", "$prefix${fence.name}")
         }
     }
     val labelCollection = FeatureCollection.fromFeatures(labelFeatures)
@@ -104,10 +86,7 @@ fun drawGeofences(
         style.addSource(GeoJsonSource(LABEL_SOURCE_ID, labelCollection))
         style.addLayer(
             SymbolLayer(LABEL_LAYER_ID, LABEL_SOURCE_ID).withProperties(
-                textField("{name}"),
-                textColor("#0D47A1"),
-                textSize(13f),
-                textAnchor("top")
+                textField("{name}"), textColor("#0D47A1"), textSize(13f), textAnchor("top")
             )
         )
     } else {

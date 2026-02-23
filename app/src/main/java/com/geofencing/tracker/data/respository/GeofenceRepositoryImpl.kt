@@ -1,4 +1,4 @@
-package com.geofencing.tracker.data.repository
+package com.geofencing.tracker.data.respository
 
 import com.geofencing.tracker.data.local.dao.GeofenceDao
 import com.geofencing.tracker.data.local.dao.VisitDao
