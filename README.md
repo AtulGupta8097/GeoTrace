@@ -1,51 +1,78 @@
-# 📍 Location Geofencing App
+# 📍 GeoTrace — Location Geofencing App
 
-An Android application that allows users to create location-based geofences and track visits using entry and exit events, even when the app runs in the background.
-
----
-
-## 🎥 App Demo
-
-> ▶️ Watch the app in action
-
-https://github.com/user-attachments/assets/93bd519d-1472-49a6-a7b1-b1158863fb88
+An Android application that lets you create location-based geofences, plan multi-stop routes, and track visits using entry and exit events — even when the app runs in the background.
 
 ---
 
 ## ✨ Features
 
-- 📌 Show user’s current location on Google Maps  
-- 🗺️ Add geofence by long-pressing on the map  
-- 🏷️ Save location with readable address name  
-- 🔔 Entry notification when user enters a geofence  
-- 🔔 Exit notification when user leaves a geofence  
-- ⏱️ Calculate time spent inside each geofence  
-- 🔄 Works even when app is in background  
+- 🗺️ Interactive map powered by MapLibre (OpenStreetMap)
+- 📌 Long-press the map to add a geofence with auto-resolved address name
+- 👆 Tap geofence circles to select them for a route
+- 🧭 Multi-stop route planning with nearest-first ordering
+- 🛣️ Real road route via OSRM with distance and ETA per leg
+- 🔔 Entry & exit notifications with time spent inside each geofence
+- ✅ Auto-advance to next stop when you arrive
+- 🔄 Background tracking via Foreground Service — works with app closed
+- 📋 Full visit history with entry time, exit time and duration
+- 🔁 Restarts automatically after device reboot
 
 ---
 
 ## 🛠️ Tech Stack
 
 | Category | Technology |
-|--------|------------|
+|---|---|
 | Language | Kotlin |
 | UI | Jetpack Compose |
-| Architecture | MVVM |
-| Maps | Google Maps SDK |
-| Location | Fused Location Provider |
-| Geofencing | Android Geofencing API |
-| Notifications | Notification Manager |
+| Architecture | MVVM + Clean Architecture |
+| Maps | MapLibre (OpenFreeMap tiles) |
+| Location | Fused Location Provider API |
+| Routing | OSRM (Open Source Routing Machine) |
+| Background Tracking | Foreground Service + WakeLock |
+| Dependency Injection | Hilt |
+| Database | Room |
+| Navigation | Navigation3 |
+| Notifications | NotificationManager |
 
 ---
 
 ## 📦 Download APK
 
-👉 [Download Debug APK](https://github.com/AtulGupta8097/GeoTrace/releases/download/v1/app-debug.apk)
+👉 [Download Release APK](https://github.com/AtulGupta8097/GeoTrace/releases/download/v1.1/app-release.apk)
 
 ---
 
-## 🚀 How to Run the Project
+## 🚀 How to Use
+
+Long-press the map to add geofence locations, tap them to select for a route, then press **"Start Route"** — the app will guide you and notify you at each stop.
+Check the **Geofences** tab to manage saved locations, **Route** tab to track progress, and **Visits** tab to see your history.
+
+---
+
+## 🏃 How to Run the Project
 
 1. Clone the repository
    ```bash
    git clone https://github.com/AtulGupta8097/GeoTrace.git
+   ```
+
+2. Open in Android Studio
+
+3. Sync Gradle and run on a device or emulator with Google Play Services
+
+> ⚠️ A physical device is recommended — location and background service behaviour is unreliable on emulators.
+
+---
+
+## 📋 Permissions Required
+
+| Permission | Reason |
+|---|---|
+| `ACCESS_FINE_LOCATION` | Show user position on map |
+| `ACCESS_BACKGROUND_LOCATION` | Track geofences when app is closed |
+| `POST_NOTIFICATIONS` | Entry / exit alerts |
+| `FOREGROUND_SERVICE_LOCATION` | Background location service |
+| `RECEIVE_BOOT_COMPLETED` | Restart service after reboot |
+
+---
