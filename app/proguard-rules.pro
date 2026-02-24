@@ -19,3 +19,27 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+
+# MapLibre
+-keep class org.maplibre.** { *; }
+-keep interface org.maplibre.** { *; }
+
+# Room
+-keep class * extends androidx.room.RoomDatabase
+-keep @androidx.room.Entity class *
+
+# Hilt
+-keep class dagger.hilt.** { *; }
+-keep class javax.inject.** { *; }
+
+# GeoJSON
+-keep class org.maplibre.geojson.** { *; }
+
+# Kotlin coroutines
+-keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
+-keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
+
+# Kotlinx serialization (for Navigation3 routes)
+-keepattributes *Annotation*, InnerClasses
+-keep class kotlinx.serialization.** { *; }

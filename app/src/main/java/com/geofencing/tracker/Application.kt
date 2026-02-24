@@ -7,7 +7,6 @@ import org.maplibre.android.WellKnownTileServer
 
 @HiltAndroidApp
 class GeofenceApplication : Application() {
-
     override fun onCreate() {
         super.onCreate()
         MapLibre.getInstance(this, null, WellKnownTileServer.MapLibre)

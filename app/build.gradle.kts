@@ -23,7 +23,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -73,15 +74,10 @@ dependencies {
     implementation(libs.androidx.navigation3 )
 
     implementation(libs.play.services.location)
-    implementation(libs.maps.compose)
-    implementation(libs.androidx.datastore.preferences)
-
     //Icons
     implementation(libs.androidx.material.icons.extended)
 
-
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2")
-    implementation("org.maplibre.gl:android-sdk:10.0.2")
-    implementation("org.maplibre.gl:android-plugin-annotation-v9:3.0.2")
+    implementation("org.maplibre.gl:android-sdk:12.3.1")
 }
