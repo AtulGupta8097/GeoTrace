@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.geofencing.tracker.domain.model.GeofenceLocation
 import com.geofencing.tracker.domain.repository.GeofenceRepository
+import com.geofencing.tracker.utils.haversineMeters
 import com.google.android.gms.location.CurrentLocationRequest
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.Priority
@@ -19,6 +20,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -29,11 +31,6 @@ import org.maplibre.geojson.Point
 import java.net.HttpURLConnection
 import java.net.URL
 import javax.inject.Inject
-import kotlin.math.asin
-import kotlin.math.cos
-import kotlin.math.pow
-import kotlin.math.sin
-import kotlin.math.sqrt
 
 data class RouteState(
     val orderedStops: List<GeofenceLocation> = emptyList(),
@@ -48,8 +45,11 @@ data class RouteState(
     val allVisited: Boolean = false,
     val error: String? = null
 ) {
-    val nextStop: GeofenceLocation? get() = orderedStops.getOrNull(currentStopIndex)
-    val visitedCount: Int get() = orderedStops.count { it.isVisited }
+    val nextStop: GeofenceLocation?
+        get() = orderedStops.getOrNull(currentStopIndex)
+
+    val visitedCount: Int
+        get() = orderedStops.count { it.isVisited }
 }
 
 @HiltViewModel
@@ -64,11 +64,14 @@ class RouteViewModel @Inject constructor(
 
     private var locationPollJob: Job? = null
 
-    init { loadRoute() }
+    init {
+        loadRoute()
+    }
 
     fun loadRoute() {
         viewModelScope.launch {
             _state.value = RouteState(isLoading = true)
+
             val userLoc = getUserLocation()
             val selected = repository.getSelectedGeofences()
 
@@ -77,8 +80,12 @@ class RouteViewModel @Inject constructor(
                 return@launch
             }
 
-            val ordered = if (userLoc != null) sortNearestFirst(userLoc.latitude, userLoc.longitude, selected) else selected
-            val startIndex = ordered.indexOfFirst { !it.isVisited }.coerceAtLeast(0)
+            val ordered = userLoc?.let {
+                sortNearestFirst(it.latitude, it.longitude, selected)
+            } ?: selected
+
+            val startIndex = ordered.indexOfFirst { !it.isVisited }
+                .takeIf { it >= 0 } ?: 0
 
             _state.value = RouteState(
                 orderedStops = ordered,
@@ -89,9 +96,10 @@ class RouteViewModel @Inject constructor(
                 allVisited = ordered.all { it.isVisited }
             )
 
-            val nextStop = ordered.getOrNull(startIndex)
-            if (!ordered.all { it.isVisited } && userLoc != null && nextStop != null) {
-                fetchLeg(userLoc, nextStop)
+            ordered.getOrNull(startIndex)?.let { next ->
+                if (userLoc != null && !ordered.all { it.isVisited }) {
+                    fetchLeg(userLoc, next)
+                }
             }
 
             startLocationPolling()
@@ -99,8 +107,8 @@ class RouteViewModel @Inject constructor(
     }
 
     fun resetRoute() {
-        locationPollJob?.cancel()
         viewModelScope.launch {
+            locationPollJob?.cancel()
             repository.clearAllSelections()
             repository.clearAllVisited()
             _state.value = RouteState(isLoading = false)
@@ -108,24 +116,36 @@ class RouteViewModel @Inject constructor(
     }
 
     override fun onCleared() {
-        super.onCleared()
         locationPollJob?.cancel()
+        super.onCleared()
     }
 
     private fun startLocationPolling() {
         locationPollJob?.cancel()
+
         locationPollJob = viewModelScope.launch {
             while (isActive) {
                 val loc = getUserLocation()
-                if (loc != null) {
-                    val s = _state.value
-                    val nextStop = s.nextStop
-                    if (nextStop != null && !s.allVisited) {
-                        val dist = haversineMeters(loc.latitude, loc.longitude, nextStop.latitude, nextStop.longitude)
-                        _state.value = s.copy(userLocation = loc, distanceToNextMeters = dist)
-                        if (dist <= nextStop.radius) onArrived(nextStop, loc)
+                val s = _state.value
+
+                if (loc != null && !s.allVisited) {
+                    s.nextStop?.let { next ->
+                        val dist = haversineMeters(
+                            loc.latitude, loc.longitude,
+                            next.latitude, next.longitude
+                        )
+
+                        _state.value = s.copy(
+                            userLocation = loc,
+                            distanceToNextMeters = dist
+                        )
+
+                        if (dist <= next.radius) {
+                            onArrived(next, loc)
+                        }
                     }
                 }
+
                 delay(5_000)
             }
         }
@@ -133,114 +153,144 @@ class RouteViewModel @Inject constructor(
 
     private suspend fun onArrived(stop: GeofenceLocation, userLoc: LatLng) {
         repository.markGeofenceVisited(stop.id, true)
+
         val s = _state.value
+        val updatedStops = s.orderedStops.map {
+            if (it.id == stop.id) it.copy(isVisited = true) else it
+        }
+
         val nextIndex = s.currentStopIndex + 1
-        val refreshed = s.orderedStops.map { if (it.id == stop.id) it.copy(isVisited = true) else it }
-        val allDone = nextIndex >= refreshed.size || refreshed.all { it.isVisited }
+        val allDone = nextIndex >= updatedStops.size || updatedStops.all { it.isVisited }
 
         if (allDone) {
-            _state.value = s.copy(orderedStops = refreshed, currentStopIndex = nextIndex.coerceAtMost(refreshed.size), routePoints = emptyList(), allVisited = true, distanceToNextMeters = null)
-        } else {
-            val nextStop = refreshed[nextIndex]
             _state.value = s.copy(
-                orderedStops = refreshed,
-                currentStopIndex = nextIndex,
-                userLocation = userLoc,
+                orderedStops = updatedStops,
+                currentStopIndex = nextIndex.coerceAtMost(updatedStops.size),
                 routePoints = emptyList(),
-                isFetchingRoute = true,
-                distanceToNextMeters = haversineMeters(userLoc.latitude, userLoc.longitude, nextStop.latitude, nextStop.longitude)
+                allVisited = true,
+                distanceToNextMeters = null
             )
-            fetchLeg(userLoc, nextStop)
+            return
         }
+
+        val nextStop = updatedStops[nextIndex]
+
+        _state.value = s.copy(
+            orderedStops = updatedStops,
+            currentStopIndex = nextIndex,
+            userLocation = userLoc,
+            routePoints = emptyList(),
+            isFetchingRoute = true,
+            distanceToNextMeters = haversineMeters(
+                userLoc.latitude, userLoc.longitude,
+                nextStop.latitude, nextStop.longitude
+            )
+        )
+
+        fetchLeg(userLoc, nextStop)
     }
 
     private suspend fun fetchLeg(from: LatLng, to: GeofenceLocation) {
-        _state.value = _state.value.copy(isFetchingRoute = true, error = null)
+        _state.update { it.copy(isFetchingRoute = true, error = null) }
+
         try {
             val coords = "${from.longitude},${from.latitude};${to.longitude},${to.latitude}"
-            val url = "https://router.project-osrm.org/route/v1/driving/$coords?overview=full&geometries=geojson&steps=false"
+            val url =
+                "https://router.project-osrm.org/route/v1/driving/$coords?overview=full&geometries=geojson"
 
             val json = withContext(Dispatchers.IO) {
                 val conn = URL(url).openConnection() as HttpURLConnection
                 conn.connectTimeout = 10_000
                 conn.readTimeout = 15_000
+
                 try {
-                    if (conn.responseCode == 200) conn.inputStream.bufferedReader().readText() else null
+                    if (conn.responseCode == 200)
+                        conn.inputStream.bufferedReader().readText()
+                    else null
                 } finally {
                     conn.disconnect()
                 }
             }
 
             if (json == null) {
-                _state.value = _state.value.copy(isFetchingRoute = false, error = "Could not fetch route — check internet connection")
+                _state.update { it.copy(isFetchingRoute = false, error = "Network error") }
                 return
             }
 
             val root = JSONObject(json)
             if (root.optString("code") != "Ok") {
-                _state.value = _state.value.copy(isFetchingRoute = false, error = "Routing error: ${root.optString("code")}")
+                _state.update { it.copy(isFetchingRoute = false, error = "Routing error") }
                 return
             }
 
             val route = root.getJSONArray("routes").getJSONObject(0)
             val coordsArr = route.getJSONObject("geometry").getJSONArray("coordinates")
+
             val points = (0 until coordsArr.length()).map { i ->
                 val pair = coordsArr.getJSONArray(i)
                 Point.fromLngLat(pair.getDouble(0), pair.getDouble(1))
             }
 
-            _state.value = _state.value.copy(
-                routePoints = points,
-                legDistanceMeters = route.getDouble("distance"),
-                legDurationSeconds = route.getDouble("duration"),
-                isFetchingRoute = false,
-                error = null
-            )
+            _state.update {
+                it.copy(
+                    routePoints = points,
+                    legDistanceMeters = route.getDouble("distance"),
+                    legDurationSeconds = route.getDouble("duration"),
+                    isFetchingRoute = false
+                )
+            }
+
         } catch (e: Exception) {
-            _state.value = _state.value.copy(isFetchingRoute = false, error = "Route fetch failed: ${e.message}")
+            _state.update {
+                it.copy(isFetchingRoute = false, error = e.message)
+            }
         }
     }
 
-    private fun sortNearestFirst(startLat: Double, startLng: Double, stops: List<GeofenceLocation>): List<GeofenceLocation> {
+    private fun sortNearestFirst(
+        startLat: Double,
+        startLng: Double,
+        stops: List<GeofenceLocation>
+    ): List<GeofenceLocation> {
         val remaining = stops.toMutableList()
         val result = mutableListOf<GeofenceLocation>()
+
         var curLat = startLat
         var curLng = startLng
+
         while (remaining.isNotEmpty()) {
-            val next = remaining.minByOrNull { haversineMeters(curLat, curLng, it.latitude, it.longitude) }!!
+            val next = remaining.minByOrNull {
+                haversineMeters(curLat, curLng, it.latitude, it.longitude)
+            }!!
             result.add(next)
             remaining.remove(next)
             curLat = next.latitude
             curLng = next.longitude
         }
+
         return result
     }
 
     private suspend fun getUserLocation(): LatLng? {
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) return null
+        if (ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) return null
+
         return try {
             val last = fusedLocationClient.lastLocation.await()
-            if (last != null) {
-                LatLng(last.latitude, last.longitude)
-            } else {
-                val fresh = fusedLocationClient.getCurrentLocation(
+
+            last?.let { LatLng(it.latitude, it.longitude) }
+                ?: fusedLocationClient.getCurrentLocation(
                     CurrentLocationRequest.Builder()
                         .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
                         .build(),
                     null
-                ).await()
-                fresh?.let { LatLng(it.latitude, it.longitude) }
-            }
-        } catch (e: Exception) { null }
-    }
+                ).await()?.let { LatLng(it.latitude, it.longitude) }
 
-    private fun haversineMeters(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Double {
-        val r = 6_371_000.0
-        val phi1 = Math.toRadians(lat1)
-        val phi2 = Math.toRadians(lat2)
-        val dPhi = Math.toRadians(lat2 - lat1)
-        val dLambda = Math.toRadians(lng2 - lng1)
-        val a = sin(dPhi / 2).pow(2) + cos(phi1) * cos(phi2) * sin(dLambda / 2).pow(2)
-        return r * 2 * asin(sqrt(a))
+        } catch (_: Exception) {
+            null
+        }
     }
 }

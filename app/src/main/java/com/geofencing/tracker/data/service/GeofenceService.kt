@@ -6,7 +6,6 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.IBinder
@@ -19,6 +18,7 @@ import com.geofencing.tracker.R
 import com.geofencing.tracker.domain.model.GeofenceLocation
 import com.geofencing.tracker.domain.model.GeofenceVisit
 import com.geofencing.tracker.domain.repository.GeofenceRepository
+import com.geofencing.tracker.utils.haversineMeters
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
@@ -31,11 +31,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import kotlin.math.asin
-import kotlin.math.cos
-import kotlin.math.pow
-import kotlin.math.sin
-import kotlin.math.sqrt
 
 @AndroidEntryPoint
 class GeofenceService : Service() {
@@ -188,7 +183,7 @@ class GeofenceService : Service() {
 
     private fun acquireWakeLock() {
         runCatching {
-            val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+            val pm = getSystemService(POWER_SERVICE) as PowerManager
             wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "GeofenceApp::NavigatorWakeLock")
                 .apply { acquire(24 * 60 * 60 * 1000L) }
         }
@@ -201,16 +196,6 @@ class GeofenceService : Service() {
 
     private fun hasLocationPermission() =
         ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-
-    private fun haversineMeters(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Double {
-        val r = 6_371_000.0
-        val phi1 = Math.toRadians(lat1)
-        val phi2 = Math.toRadians(lat2)
-        val dPhi = Math.toRadians(lat2 - lat1)
-        val dLambda = Math.toRadians(lng2 - lng1)
-        val a = sin(dPhi / 2).pow(2) + cos(phi1) * cos(phi2) * sin(dLambda / 2).pow(2)
-        return r * 2 * asin(sqrt(a))
-    }
 
     companion object {
         const val FOREGROUND_CHANNEL_ID = "geofence_nav_channel"
